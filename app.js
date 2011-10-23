@@ -29,21 +29,9 @@ app.configure('production', function(){
 
 // Global counter
 var counters= {};
+var countersChanged = false;
 
-// Sockets
-var io = io.listen(app).set('log level', 1);
-
-io.sockets.on('connection', function (socket) {
-  socket.emit('update', counters);
-  /*client.on('message', function (message) {
-    if (message.event == 'homepage loaded') {
-      client.broadcast('cool');
-    }
-  });*/
-});
-
-// Routes
-
+// Pages
 app.get('/', function(req, res){
   res.render('index', {
     title: 'Live Stats',
@@ -64,15 +52,29 @@ app.get('/:name', function(req, res){
   }
 
   counters[name].count++;
+  countersChanged = true;
 
   res.render('counter', {
     title: 'Counter: ' + name,
     counter: counters[name]
   });
-
-  // Notify stats
-  io.sockets.emit('update', counters);
 });
+
+// Sockets
+var io = io.listen(app).set('log level', 1);
+
+io.sockets.on('connection', function (socket) {
+  socket.emit('update', counters);
+});
+
+// Send new stats every 500ms if they changed
+setInterval(function(){
+  if (countersChanged){
+    io.sockets.emit('update', counters);
+    countersChanged = false;
+  }
+}, 500);
+
 
 app.listen(3000);
 console.log("Express server listening on port %d in %s mode", app.address().port, app.settings.env);
